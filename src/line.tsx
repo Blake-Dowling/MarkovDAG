@@ -1,18 +1,40 @@
 import React, {useEffect, useState} from 'react'
 
+
 export default function State() {
+    useEffect(() => {
+        const interval = setInterval(() => {
+
+            setStateList1(state.drawState());
+            // setMarkovMatrix(new MarkovMatrix(state.nodes.length));
+            // markovMatrix.markovCalc(state);
+            // markovMatrix.markovMult(state);
+            // setMarkovList(markovMatrix.markovDisplay());
+
+            
+
+        }, 1000);
+        return () => {
+            clearInterval(interval);
+        };
+    }, []);
     //************************************************************/
     //******************** Markov matrix definition ********************/
     //************************************************************/
     class MarkovMatrix{
-        size: number;
-        matrix: number[][] = [[]];
+        width: number;
+        height: number;
+        matrix: number[][] = [];
         constructor(size: number){
-            this.size = size;
-            this.matrix = Array(size**2).fill(0.0)
+            this.width = size;
+            this.height = size;
+            for(let i=0; i<size; i++){
+                let newRow = Array(size).fill(0.0);
+                this.matrix.push(newRow);
+            }
+
         }
         setProb(from: number, to: number, prob: number): void{
-            let toIndex: number = from + this.size*to;
             this.matrix[from][to] = prob;
         }
 
@@ -33,41 +55,51 @@ export default function State() {
         }
         markovMult(state: State): void{
             //******************** Check matrix side length = state length ********************/
-            let stateLength: number = state.nodes.length; //length of state
-            let matrixSideLength: number = this.matrix.length / stateLength; //width/height of matrix
-            if(matrixSideLength !== stateLength){ //check matrix side = state length
+            if(state.nodes.length !== this.width){ //check matrix side = state length
                 throw new Error("Markov matrix width and height must equal state length.");
             }
             //******************** Matrix Multiplication ********************/
-            let oldState = Array(state.nodes.length).fill(0.0); //copy of old densities state
-            for(let i=0; i<state.nodes.length; i++){
-                oldState[i] = state.nodes[i].density;
+            let oldDensities = Array(state.nodes.length).fill(0.0); 
+            for(let i=0; i<state.nodes.length; i++){ //copy of old densities state
+                oldDensities[i] = state.nodes[i].density;
             }
-            let newState = Array(stateLength).fill(0.0); //new densities state
-
-            for(let row=0; row<matrixSideLength; row++){ //loop over each matrix row
-                let matrixRowIndex = matrixSideLength * row; //matrix index of row[0]
-                for(let i=matrixRowIndex; i<matrixRowIndex+matrixSideLength; i++){ //loop over matrix row
-                    newState[row] += oldState[row] * this.matrix[i]; //dot current row index to new state
+            let newDensities = Array(oldDensities.length).fill(0.0); //new densities state
+            for(let row=0; row<this.matrix.length; row++){
+                for(let col=0; col<this.matrix[row].length; col++){
+                    
+                    newDensities[row] += oldDensities[row] * this.matrix[row][col];
+                    
+                    console.log(newDensities[row]);
                 }
             }
-            for(let i=0; i<state.nodes.length; i++){ //Copy new state densities to old state
-                state.nodes[i].density = newState[i];
-            }
+
+            //******************** Copy new state ********************/
+            setState((prevState) => {
+                let newState = new State(prevState.nodes.length);
+                newState.nodes = prevState.nodes;
+                for(let i=0; i<prevState.nodes.length; i++){ //Copy new state densities to old state
+                    newState.nodes[i].density = newDensities[i];
+                }
+                return (newState)
+            });
+            
+            
         }
         markovDisplay(){
             let probList: any[] = [];
-            this.matrix.map((prob, i) => {
+            for(const row of this.matrix){
                 probList.push(
                     <div>
-                        <div style={nodeStyle}>
-                            {prob.toFixed(2)}
-                        
-                        (i % Math.trunc(Math.sqrt(this.matrix.length)) === 0) && </div><div>
-                        </div>
+                        {row.map((prob) => {
+                            return (
+                                <div style={nodeStyle}>
+                                    {prob.toFixed(2)}
+                                </div>
+                            )
+                        })}
                     </div>
                 );
-            });
+            }
             return(
                 // Container of list of node divs
                 <div style={{display: "flex"}}>
@@ -84,7 +116,7 @@ export default function State() {
         density: number; //Density at a single node
         next: Node[]; //Node closer to head
         //******************** Node Constructor ********************/
-        constructor(density: number = 0.5){
+        constructor(density: number = 0.4){
             this.density = density;
             this.next = [];
         }
@@ -159,34 +191,13 @@ export default function State() {
     //******************** Main ********************/
     //************************************************************/
     const[state, setState] = React.useState(new State(10));
-    
+    console.log("--------")
     const [StateList1, setStateList1] = React.useState(state.drawState());
     
     const [markovMatrix, setMarkovMatrix] = useState(new MarkovMatrix(state.nodes.length));
 
     const [markovList, setMarkovList] = React.useState(markovMatrix.markovDisplay());
-    useEffect(() => {
-        const interval = setInterval(() => {
-            //setTime(Date.now())
-            setStateList1(state.drawState());
-            setMarkovMatrix(new MarkovMatrix(state.nodes.length));
-            markovMatrix.markovCalc(state);
-            markovMatrix.markovMult(state);
-            setMarkovList(markovMatrix.markovDisplay());
-            //console.log(markovMatrix.matrix);
-            // for(const tail of state.heads){
-            //     state.markovReset(tail);
-            // }
-            // for(const tail of state.heads){
-            //     state.markovCalc(tail, null);
-            // }
-            
 
-        }, 1000);
-        return () => {
-            clearInterval(interval);
-        };
-    }, []);
     //************************************************************/
     //******************** Render ********************/
     //************************************************************/
