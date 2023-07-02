@@ -9,38 +9,45 @@ export default function Line() {
     class Node{
         density: number; //Density at a single node
         prev: Node[]; //Node closer to head
+        probMove: number; //Markov probability of density movement from this node, forward
         //******************** Node Constructor ********************/
         constructor(density: number = 0.5){
             this.density = density;
             this.prev = [];
+            this.probMove = 1.0;
         }
     }
     //************************************************************/
     //******************** Line definition ********************/
     //************************************************************/
     class Line{
-        tail: Node; //Node at end of line (forwardmost)
+        tails: Node[]; //Node at end of line (forwardmost)
         //******************** Line Constructor ********************/
         //Creates an adjacency list of 'length' nodes
         constructor(length: number){
-            if(length <= 0){ //Check length > 0
+            if(length < 0){ //Check length < 0
                 throw new Error('Line length <= 0.');
             }
-            this.tail = new Node(); //Initialize first node to be tail
-            let oldNode = this.tail; //Temp Node variable to assign this node to next node's prev list
-            for(let i=length-1; i>=1; i--){ //Create length - 2 nodes (after tail)
-                let newNode = new Node(); //Create a node
-                oldNode.prev.push(newNode); //Add backward node to new node's prev list
-                oldNode = newNode; //Update temp Node var to newly created node
+            this.tails = [] //Initialize tails to empty array if length is 0.
+            if(length > 0){ //Check length > 0
+                let initialNode = new Node(); //Create initial node (will be initial tail)
+                this.tails.push(initialNode); //Initialize first node to be a tail
+                let oldNode = initialNode; //Temp Node variable to assign this node to next node's prev list
+                for(let i=length-1; i>=1; i--){ //Create length - 2 nodes (after tail)
+                    let newNode = new Node(); //Create a node
+                    oldNode.prev.push(newNode); //Add backward node to new node's prev list
+                    oldNode = newNode; //Update temp Node var to newly created node
+                }
             }
+            
         }
         //******************** getHead ********************/
         //returns the backwardmost node in calling 'Line' instance
-        getHead(){
-            let curNode = this.tail;
-            this.iterAll(this.tail, (n) => {curNode = n})
-            return curNode;
-        }
+        // getHead(){
+        //     let curNode = this.tail;
+        //     this.iterAll(this.tail, (n) => {curNode = n})
+        //     return curNode;
+        // }
         //******************** iterAll (Map) ********************/
         //Applies 'func' to each node in calling Line instance, beginning with 'curNode' (recursive)
         iterAll(curNode: Node, func: (n: Node) => void){
@@ -74,26 +81,47 @@ export default function Line() {
                 </div>
             )
         }
-        //******************** markovStep ********************/
+        //******************** markovReset ********************/
+        //Set all nodes' probMove values to 1.0
+        markovReset(curNode: Node){
+            curNode.probMove = 1.0; //Set current node's probMove to 0.0
+            if(curNode?.prev.length <= 0){ //Base case, no previous nodes
+                return;
+            }
+            for(const node of curNode?.prev){ //Current node has previous nodes
+                this.markovReset(node); //recursive call for each
+            }
+        }
+        //******************** markovCalc ********************/
         //Perform single iteration of markov transformation
         //to calling line instance
-        markovStep(curNode: Node, nextNode: Node | null){
-            
-            
-            let probMove : number = nextNode === null ? 1.0 : (1.0 - nextNode.density);
-            let amountMove : number = probMove * curNode.density;
-            if(nextNode !== null){
-                nextNode.density += amountMove;
+        markovCalc(curNode: Node, nextNode: Node | null){
+            //If no next node, maintain current probMove (init 1.0) (following
+            //operation will not be performed)
+            if(nextNode !== null){  //If exists next node
+                //Probability of this node's movement is *= (1 - density of next node)
+                curNode.probMove *= (1.0 - nextNode.density);
             }
-            curNode.density -= amountMove;
+            //
+            
+            // let amountMove : number = probMove * curNode.density;
+            // if(nextNode !== null){
+            //     nextNode.density += amountMove;
+            // }
+            // curNode.density -= amountMove;
             
             if(curNode?.prev.length <= 0){ //no more previous nodes, return
                 return;
             }
             for(const node of curNode?.prev){ //recursive call for each previous connected node
-                
-                this.markovStep(node, curNode) //prev node new cur node. Just-processed node nextNode.
+                this.markovCalc(node, curNode) //prev node new cur node. Just-processed node nextNode.
             }
+        }
+        //******************** markovMove ********************/
+        //Transfer density according to markov matrix
+        markovMove(curNode: Node, nextNode: Node | null){
+            let densityTransfer: number = curNode.probMove * curNode.density;
+            
         }
         
 
@@ -108,7 +136,13 @@ export default function Line() {
         const interval = setInterval(() => {
             //setTime(Date.now())
             setLineList1(line1.drawLine());
-            line1.markovStep(line1.tail, null);
+            for(const tail of line1.tails){
+                line1.markovReset(tail);
+            }
+            for(const tail of line1.tails){
+                line1.markovCalc(tail, null);
+            }
+            
 
         }, 1000);
         return () => {
